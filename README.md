@@ -1,8 +1,4 @@
----
-editor_options: 
-  markdown: 
-    wrap: 72
----
+# MBS Viewer
 
 This application is a US Mortgage-Backed Securities (MBS) query tool. It
 is today a $7.3 trillion market of 1M pools of US Prime Real State
