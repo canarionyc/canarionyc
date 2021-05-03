@@ -1,0 +1,148 @@
+
+
+```{r setup-FNMA_PoolView, include=FALSE}
+options(scipen = 9999)
+library(aws.s3)
+
+
+library(knitr)
+knitr::opts_chunk$set(cache = TRUE, echo=FALSE, tidy = FALSE)
+
+library(data.table)
+
+  library(magrittr)
+
+  
+  library(pander)
+# source("~/Finance/FNMA/FNMA_web/FNMA_PoolView/DT_to_widget.R")
+```
+
+```{r setup-loanroll, include=FALSE, eval=TRUE}
+readRenviron("~/Finance/FNMA/.Renviron")
+# library(loanroll)
+devtools::load_all("~/Finance/FNMA/loanroll", reset = TRUE, recompile = FALSE, export_all = FALSE)
+
+source("~/Finance/FNMA/FNMA_web/FNMA_PoolView/DT_to_widget.R")
+```
+
+## Implementation
+
+The publicly available data files provided monthly by the agencies are stored in Amazon Web Services (AWS) S3 file hosting platform.
+
+```{r, cache=TRUE, eval=FALSE}
+print(aws.s3::bucketlist(verbose=FALSE))
+```
+
+For example, the first 2 Fannie Mae monthly factor files are:
+
+```{r, cache=TRUE, eval=TRUE}
+print(
+  get_bucket("fnma-mbs-sf-singleclass-datadir"
+             , prefix = "FNM_MF_"
+             , max=2
+             , verbose=FALSE
+  )
+)
+```
+
+The input files are parsed and stored in binary format in AWS S3:
+
+```{r, cache=TRUE, eval=TRUE}
+print(
+  get_bucket("fnma-mbs-sf-singleclass"
+             , prefix = "FNM_MF_"
+             , max=2
+             , verbose=FALSE
+  )
+)
+```
+
+
+Then monthly aggregations are made. For example, for FNCL:
+```{r FNCL, echo = FALSE, eval=TRUE, cache=TRUE}
+Factor_Date <- "2021-04-01"
+args.lst <- list(Factor_Date = Factor_Date, bucket_name=fn_mbs_sf_bucket, verbose = TRUE)
+
+MF <- tryCatch( # MonthlyFactorDataset( Factor_Date = Factor_Date, bucket_name = fn_mbs_sf_bucket)
+   do.call(MonthlyFactorDataset, args.lst)
+                , error = function(e) e
+#                ,finally = print("Done with MonthlyFactorDataset")
+                                 
+)
+if(inherits(MF, "error")) {
+  stop(conditionMessage(MF))
+}
+FNCL <- subset(MF, subset = quote(Prefix=="CL" & Seller_Name != "SCR" & Security_Factor_Date == Factor_Date))
+FNCL_stats <- aggregate(FNCL, by.vars=c(
+  'Prefix'))
+saveRDS(FNCL_stats, "FNCL_stats.Rds")
+```
+
+```{r FNCL_stats-kbl, results='asis', eval=FALSE}
+library(data.table)
+FNCL_stats <- readRDS("FNCL_stats.Rds")
+# library(xtable)
+# print(xtable2(FNCL_stats), type = "html")
+# 
+
+dt <- FNCL_stats
+  dt <- dt[,which(unlist(lapply(dt, function(x)!all(is.na(x))))), with=FALSE]
+  # str(dt)
+  setDT(dt)
+  setnames(dt,  gsub("[_.]", " ", fixed=FALSE, names(dt)))
+ #  names(dt)
+# library(DT)
+#   datatable(dt
+#              , colnames = gsub("[_.]", " ", fixed=FALSE, names(dt))
+#             , options = list(dom = 'BRrt')
+#   )
+
+library(kableExtra)
+  library(magrittr)
+kbl(dt) %>%
+  kable_styling()
+
+
+# DT_to_widget(FNCL_stats)
+```
+
+```{r FNCL_stats, results='asis'}
+library(data.table)
+FNCL_stats <- readRDS("FNCL_stats.Rds")
+row.names(FNCL_stats) <- FNCL_stats$Security_Factor_Date
+FNCL_stats[, Security_Factor_Date:=NULL]
+row.names(FNCL_stats) 
+# library(xtable)
+# print(xtable2(FNCL_stats), type = "html")
+# 
+
+dt <- FNCL_stats
+  dt <- dt[,which(unlist(lapply(dt, function(x)!all(is.na(x))))), with=FALSE]
+  row.names(dt) <- row.names(FNCL_stats)
+  # str(dt)
+  # setDT(dt)
+  setnames(dt,  gsub("[_.]", " ", fixed=FALSE, names(dt)))
+ #  names(dt)
+# library(DT)
+#   datatable(dt
+#              , colnames = gsub("[_.]", " ", fixed=FALSE, names(dt))
+#             , options = list(dom = 'BRrt')
+#   )
+
+  
+pandoc.table(dt
+             , caption="FN CL"
+             , split.cells = 10
+#             , style = "grid"
+ #            , use.hyphening = TRUE,
+             , round = 2
+             , big.mark = ","
+             )
+
+
+# DT_to_widget(FNCL_stats)
+```
+
+```{r, eval=FALSE}
+pandoc.table(mtcars[1:2, ], style = "grid", caption = "Wide table to be split!")
+```
