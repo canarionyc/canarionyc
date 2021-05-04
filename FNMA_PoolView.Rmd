@@ -1,49 +1,58 @@
+---
+output:
+  md_document: default
+  html_document: default
+editor_options: 
+  chunk_output_type: console
+---
 
+## Implementation
 
 ```{r setup-FNMA_PoolView, include=FALSE}
 options(scipen = 9999)
 library(aws.s3)
 
-
 library(knitr)
-knitr::opts_chunk$set(cache = TRUE, echo=FALSE, tidy = FALSE)
+knitr::opts_chunk$set(cache = TRUE, echo=FALSE, tidy = FALSE, message=FALSE)
 
 library(data.table)
+library(magrittr)
 
-  library(magrittr)
-
-  
-  library(pander)
-# source("~/Finance/FNMA/FNMA_web/FNMA_PoolView/DT_to_widget.R")
+library(pander)
+panderOptions('big.mark',",")
+panderOptions('round',2)
+panderOptions('date',"%Y-%m-%d")
+panderOptions('table.split.table', Inf)
+panderOptions('table.split.cells', 10)
 ```
 
-```{r setup-loanroll, include=FALSE, eval=TRUE}
-readRenviron("~/Finance/FNMA/.Renviron")
-# library(loanroll)
-devtools::load_all("~/Finance/FNMA/loanroll", reset = TRUE, recompile = FALSE, export_all = FALSE)
+```{r setup-loanroll, include=FALSE, eval=TRUE, cache=FALSE}
 
-source("~/Finance/FNMA/FNMA_web/FNMA_PoolView/DT_to_widget.R")
 ```
 
-## Implementation
+### Data in AWS S3
 
-The publicly available data files provided monthly by the agencies are stored in Amazon Web Services (AWS) S3 file hosting platform.
+#### Input data files
 
-```{r, cache=TRUE, eval=FALSE}
+The publicly available data files monthly provided by the agencies are stored in Amazon Web Services (AWS) S3 file hosting platform. The list of buckets created is:
+
+```{r bucketlist, cache=TRUE, eval=TRUE}
 print(aws.s3::bucketlist(verbose=FALSE))
 ```
 
-For example, the first 2 Fannie Mae monthly factor files are:
+For example, the first Fannie Mae monthly factor files is:
 
-```{r, cache=TRUE, eval=TRUE}
+```{r mf_zip, cache=TRUE, eval=TRUE}
 print(
   get_bucket("fnma-mbs-sf-singleclass-datadir"
              , prefix = "FNM_MF_"
-             , max=2
+             , max=1
              , verbose=FALSE
   )
 )
 ```
+
+#### Processed data files
 
 The input files are parsed and stored in binary format in AWS S3:
 
@@ -51,98 +60,150 @@ The input files are parsed and stored in binary format in AWS S3:
 print(
   get_bucket("fnma-mbs-sf-singleclass"
              , prefix = "FNM_MF_"
-             , max=2
+             , max=1
              , verbose=FALSE
   )
 )
 ```
 
+## R packages developed
 
-Then monthly aggregations are made. For example, for FNCL:
-```{r FNCL, echo = FALSE, eval=TRUE, cache=TRUE}
+Package [loanroll](https://github.com/canarionyc/loanroll) for Fannie Mae and Freddie Mac pools and package [gnmar](https://github.com/canarionyc/gnmar "R pacackge on Github") for Ginnie Mae pools. Examples of their use are:
+
+### FNMA Aggregations
+
+The `MonthlyFactorDataset` object is loaded from **AWS S3**
+
+```{r FNM_MF, echo = TRUE, eval=TRUE, collapse=TRUE, message=FALSE}
+readRenviron("~/Finance/FNMA/.Renviron")
+remotes::install_github("canarionyc/loanroll",
+#                        dependencies = FALSE,
+                        force = FALSE)
+library(loanroll)
+# devtools::load_all("~/Finance/FNMA/loanroll", reset = TRUE, recompile = FALSE, export_all = FALSE)
+
 Factor_Date <- "2021-04-01"
-args.lst <- list(Factor_Date = Factor_Date, bucket_name=fn_mbs_sf_bucket, verbose = TRUE)
+args.lst <- list(Factor_Date = Factor_Date, bucket_name=fn_mbs_sf_bucket, verbose = FALSE)
 
-MF <- tryCatch( # MonthlyFactorDataset( Factor_Date = Factor_Date, bucket_name = fn_mbs_sf_bucket)
-   do.call(MonthlyFactorDataset, args.lst)
-                , error = function(e) e
-#                ,finally = print("Done with MonthlyFactorDataset")
-                                 
+MF <- tryCatch( 
+  do.call(MonthlyFactorDataset, args.lst)
+  , error = function(e) e
 )
 if(inherits(MF, "error")) {
   stop(conditionMessage(MF))
 }
-FNCL <- subset(MF, subset = quote(Prefix=="CL" & Seller_Name != "SCR" & Security_Factor_Date == Factor_Date))
-FNCL_stats <- aggregate(FNCL, by.vars=c(
-  'Prefix'))
-saveRDS(FNCL_stats, "FNCL_stats.Rds")
 ```
 
-```{r FNCL_stats-kbl, results='asis', eval=FALSE}
-library(data.table)
-FNCL_stats <- readRDS("FNCL_stats.Rds")
-# library(xtable)
-# print(xtable2(FNCL_stats), type = "html")
-# 
+Then monthly aggregations are made. For example, for **FNCL**:
 
-dt <- FNCL_stats
-  dt <- dt[,which(unlist(lapply(dt, function(x)!all(is.na(x))))), with=FALSE]
-  # str(dt)
-  setDT(dt)
-  setnames(dt,  gsub("[_.]", " ", fixed=FALSE, names(dt)))
- #  names(dt)
-# library(DT)
-#   datatable(dt
-#              , colnames = gsub("[_.]", " ", fixed=FALSE, names(dt))
-#             , options = list(dom = 'BRrt')
-#   )
+```{r FNCL, echo = TRUE, eval=TRUE, cache=TRUE}
+FNCL <- subset(MF, subset = quote(Prefix=="CL" & Seller_Name != "SCR" & WA_Net_Interest_Rate %in% seq(1,15,0.5) & Security_Factor_Date == Factor_Date))
+FNCL.stats <- aggregate(FNCL, by.vars=c('Prefix'))
+saveRDS(FNCL.stats, "FNCL_stats.Rds")
 
-library(kableExtra)
-  library(magrittr)
-kbl(dt) %>%
-  kable_styling()
-
-
-# DT_to_widget(FNCL_stats)
+FNCL_Coupon.stats <- aggregate(FNCL, by.vars=c('Prefix', 'WA_Net_Interest_Rate'))
+saveRDS(FNCL_Coupon.stats, "FNCL_Coupon_stats.Rds")
 ```
 
-```{r FNCL_stats, results='asis'}
-library(data.table)
-FNCL_stats <- readRDS("FNCL_stats.Rds")
-row.names(FNCL_stats) <- FNCL_stats$Security_Factor_Date
-FNCL_stats[, Security_Factor_Date:=NULL]
-row.names(FNCL_stats) 
-# library(xtable)
-# print(xtable2(FNCL_stats), type = "html")
-# 
+#### FNMA by Prefix
 
-dt <- FNCL_stats
-  dt <- dt[,which(unlist(lapply(dt, function(x)!all(is.na(x))))), with=FALSE]
-  row.names(dt) <- row.names(FNCL_stats)
-  # str(dt)
-  # setDT(dt)
-  setnames(dt,  gsub("[_.]", " ", fixed=FALSE, names(dt)))
- #  names(dt)
-# library(DT)
-#   datatable(dt
-#              , colnames = gsub("[_.]", " ", fixed=FALSE, names(dt))
-#             , options = list(dom = 'BRrt')
-#   )
+```{r FNCL.stats, results='asis'}
+FNCL.stats <- readRDS("FNCL_stats.Rds")
 
-  
+dt <- FNCL.stats
+dt <- dt[,which(unlist(lapply(dt, function(x)!all(is.na(x))))), with=FALSE]
+
 pandoc.table(dt
              , caption="FN CL"
+             , justify = "right"
+             , col.names = gsub("[_.]", " ", fixed=FALSE, names(dt))
+             , split.tables = Inf
              , split.cells = 10
-#             , style = "grid"
- #            , use.hyphening = TRUE,
+             #             , style = "grid"
+             #            , use.hyphening = TRUE,
              , round = 2
              , big.mark = ","
-             )
-
-
-# DT_to_widget(FNCL_stats)
+)
 ```
 
-```{r, eval=FALSE}
-pandoc.table(mtcars[1:2, ], style = "grid", caption = "Wide table to be split!")
+#### FNMA by Prefix and Coupon
+
+```{r FNCL_Coupon.stats, results='asis'}
+FNCL_Coupon.stats <- readRDS("FNCL_Coupon_stats.Rds")
+
+dt <- FNCL_Coupon.stats
+dt <- dt[,which(unlist(lapply(dt, function(x)!all(is.na(x))))), with=FALSE]
+
+pandoc.table(dt
+             , caption="FN CL by Coupon"
+              , justify = "right"
+             , col.names = gsub("[_.]", " ", fixed=FALSE, names(dt))
+             , split.tables = Inf
+             , split.cells = 10
+             #             , style = "grid"
+             #            , use.hyphening = TRUE,
+             , round = 2
+             , big.mark = ","
+)
+```
+
+### GNMA Aggregations
+
+A `GinnieMBS` object is loaded from **AWS S3**
+
+```{r ginnieMBS, echo=TRUE, cache=FALSE}
+options(verbose = FALSE)
+library(aws.s3)
+readRenviron("~/Finance/GNMA/.Renviron")
+# devtools::load_all("~/Finance/GNMA/gnmar", reset = TRUE, recompile = FALSE, export_all = FALSE)
+# library(gnmar)
+remotes::install_github("canarionyc/gnmar",
+#                        dependencies = FALSE,
+                        force = FALSE)
+library(gnmar)
+
+As_of_Date <- as.Date("2021-03-01")
+
+args.lst <- list(
+  As_of_Date = As_of_Date
+ #                , mf_zip=mf_zip
+  #              ,  bucket_name = gnma_mbs_sf_bucket
+  , overwrite = TRUE
+  , verbose = FALSE)
+
+ginnieMBS <- do.call(GinnieMBS, args.lst)
+# show(ginnieMBS)
+```
+
+#### GNMA by Prefix
+
+```{r GNSF, echo=TRUE}
+GNSF <- subset(ginnieMBS, subset=quote(Pool_Indicator=="X" & Pool_Type=="SF" &  Issuer_Number!=9999 & Security_Interest_Rate %in% seq(0.5, 11, by=0.5)))
+# print(summary(GNSF))
+GNSF_stats <- aggregate(GNSF, xvar=NULL,  by.vars=c('Pool_Indicator', 'Pool_Type' )
+                        , verbose=FALSE
+                          )
+```
+
+```{r GNSF.show, results='asis'}
+pandoc.table(GNSF_stats
+              , justify = "right"
+             , col.names = gsub("[_.]", " ", fixed=FALSE, names(GNSF_stats)))
+```
+
+### GNMA by Prefix and Coupon
+
+```{r GNSF_stats.by_Coupon, echo=TRUE}
+# GNSF_Coupon <- subset(GNSF, subset=quote(Pool_Indicator=="X" & Pool_Type=="SF" &  Issuer_Number!=9999 & Security_Interest_Rate %in% seq(0.5, 11, by=0.5)))
+# print(summary(GNSF))
+GNSF_stats.by_Coupon <- aggregate(GNSF, xvar=NULL
+                        , by.vars=c('Pool_Indicator', 'Pool_Type', 'Security_Interest_Rate' )
+                        , verbose=FALSE
+                          )
+```
+
+```{r GNSF_stats.by_Coupon.show, results='asis'}
+pandoc.table(GNSF_stats.by_Coupon
+              , justify = "right"
+             , col.names = gsub("[_.]", " ", fixed=FALSE, names(GNSF_stats.by_Coupon)))
 ```

@@ -31,3 +31,5 @@ README.pdf
 *.Rds
 workhorse.R
 README.html
+*.html
+FNMA_PoolView.md

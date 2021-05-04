@@ -1,101 +1,32 @@
 ---
 title: MBS Viewer
 author: "Tomas Gonzalez-Llarena"
-date: "6/12/2020"
+date: "5/4/2021"
 email: structuredguy@gmail.com
 output:
   md_document: 
     variant: gfm
+    df_print: !expr pander::pander
 always_allow_html: true
 editor_options:
   chunk_output_type: inline
   markdown: 
-    wrap: 72
+    wrap: 80
 # runtime: shiny
 ---
 
+# Applications and libraries stored in Github 
+
 ```{r setup-README, include=FALSE}
-library(aws.s3)
-#library(DT)
-# rmarkdown::knitr_options(opts_chunk = list(echo=FALSE))
-
 library(knitr)
-knitr::opts_chunk$set(cache = TRUE, echo=FALSE, tidy = FALSE)
-
-
-
-# source("~/Finance/FNMA/FNMA_web/FNMA_PoolView/DT_to_widget.R")
+knitr::opts_chunk$set(cache = FALSE, echo=FALSE, tidy = TRUE, message = FALSE)
 ```
 
+```{r, child="Intro.Rmd", eval=TRUE}
 
+```
 
-This application is a US Mortgage-Backed Securities (MBS) query tool. It is today a $7.3 trillion market of 1M pools of US Prime Real State loans.
-
-The scope is
-
--   [Fannie Mae Single-Family MBS](https://capitalmarkets.fanniemae.com/mortgage-backed-securities/single-family/single-family-disclosure-information-center)
-
--   [Freddie Mac Single-Family MBS](http://www.freddiemac.com/mbs/)
-
--   [Ginnie Mae Single-Family MBS](https://www.ginniemae.gov/issuers/program_guidelines/Pages/mbs_guide.aspx)
-
-## Main Sections
-
-The upper panel selects the agency as above and the reporting month. For demonstration, a random sample pool is loaded each time. The lower panel has two main tabs:
-
-### Pool View
-
-For individual pools, containing the subtabs:
-
-#### Input
-
-For entering a single and displaying main characteristics of a single pool, including geographical dispersion.
-
-![](www/Pool_View_Input.jpg)
-
-#### Detail
-
-For displaying all information disclosed by the source plus some calculated fields like prepayment speeds.
-
-![](www/Pool_View_Detail.jpg)
-
-#### ARM
-
-Adjustable Rate Mortgage (ARM)-specific information in case the pool is an ARM.
-
-![](www/Pool_View_ARM.jpg)
-
-#### Stratification
-
-Supplemental information about the pool
-
-![](www/Pool_View_Stratifications.jpg)
-
-#### Loan Level
-
-Displays loan level information for the pool when available.
-
-![](www/Pool_View_Loan_Level.jpg)
-
-## Aggregations
-
-Analytics on the cohorts
-
-### By Prefix
-
-![](www/Pool_View_Aggregations_FN.jpg)
-
-### By Prefix and Coupon
-
-![](www/FNCL.jpg)
-
-![](www/Pool_View_Aggregations_GNSF.jpg)
-
-## Filtering Aggregations
-
-![](www/Pool_View_Aggregations_GN.jpg)
-
-```{r, child="FNMA_PoolView.Rmd"}
+```{r, child="FNMA_PoolView.Rmd", eval=TRUE}
 
 ```
 

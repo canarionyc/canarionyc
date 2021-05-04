@@ -1,0 +1,75 @@
+```{r setup-intro, include=FALSE}
+library(knitr)
+knitr::opts_chunk$set(echo=FALSE
+                      # , cache = TRUE
+                      # , tidy = FALSE
+                      )
+```
+
+# MBS Viewer
+
+US Mortgage-Backed Securities (MBS0 is a $7.3 trillion market of 1M pools of Prime Real State loans. This shiny app [MBS Viewer](https://tgonzale.shinyapps.io/FNMA_PoolView/) is a US MBS query tool. It is a
+
+The scope is:
+
+-   [Fannie Mae Single-Family MBS](https://capitalmarkets.fanniemae.com/mortgage-backed-securities/single-family/single-family-disclosure-information-center)
+
+-   [Freddie Mac Single-Family MBS](http://www.freddiemac.com/mbs/)
+
+-   [Ginnie Mae Single-Family MBS](https://www.ginniemae.gov/issuers/program_guidelines/Pages/mbs_guide.aspx)
+
+## Main Panels
+
+The upper panel selects the agency as above and the reporting month. For demonstration, a random sample pool is loaded each time. The lower panel has two main tabs:
+
+### Pool Viewer
+
+For individual pools, containing the subtabs:
+
+#### Security Identifier Input and Pool Summary
+
+For entering a single pool and displaying it's main characteristics, including it's geographical dispersion.
+
+![](www/Pool_View_Input.jpg)
+
+#### Pool Detailed Information
+
+For displaying all information disclosed by the source plus some calculated fields like prepayment speeds.
+
+![](www/Pool_View_Detail.jpg)
+
+#### Adjustable Rate Mortgage (ARM) Specific
+
+ARM-specific information in case the pool is an ARM.
+
+![](www/Pool_View_ARM.jpg)
+
+#### Stratifications
+
+Supplemental information about the pool
+
+![](www/Pool_View_Stratifications.jpg)
+
+#### Loan Level Information
+
+Displays loan level information for the pool when available.
+
+![](www/Pool_View_Loan_Level.jpg)
+
+## Cohort Viewer
+
+Displays aggregations and analytics (prepayment rates) on the cohorts
+
+### Aggregations by Prefix
+
+![](www/Pool_View_Aggregations_FN.jpg)
+
+### Aggregations by Prefix and Coupon
+
+![](www/FNCL.jpg)
+
+![](www/Pool_View_Aggregations_GNSF.jpg)
+
+### Aggregations on filtered data
+
+![](www/Pool_View_Aggregations_GN.jpg)
