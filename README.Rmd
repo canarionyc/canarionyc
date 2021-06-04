@@ -7,6 +7,7 @@ output:
   md_document: 
     variant: gfm
     df_print: !expr pander::pander
+  word_document: default
 always_allow_html: true
 editor_options:
   chunk_output_type: inline
@@ -19,10 +20,10 @@ editor_options:
 
 ```{r setup-README, include=FALSE}
 library(knitr)
-knitr::opts_chunk$set(cache = FALSE, echo=FALSE, tidy = TRUE, message = FALSE)
+knitr::opts_chunk$set(cache = TRUE, echo=FALSE, tidy = FALSE, message = FALSE)
 ```
 
-```{r, child="Intro.Rmd", eval=TRUE}
+```{r , child="Intro.Rmd", eval=TRUE}
 
 ```
 
@@ -30,3 +31,6 @@ knitr::opts_chunk$set(cache = FALSE, echo=FALSE, tidy = TRUE, message = FALSE)
 
 ```
 
+```{r, child="FNMA_RollRates.Rmd", eval=TRUE}
+
+```

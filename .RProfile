@@ -1,0 +1,2 @@
+options(yaml.eval.expr =  TRUE)
+getOption("yaml.eval.expr")

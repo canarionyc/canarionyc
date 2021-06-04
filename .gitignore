@@ -33,3 +33,6 @@ workhorse.R
 README.html
 *.html
 FNMA_PoolView.md
+README.docx
+Test_*.*
+FNMA_RollRates.md
