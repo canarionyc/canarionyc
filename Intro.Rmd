@@ -5,12 +5,9 @@ knitr::opts_chunk$set(echo=FALSE
                       # , tidy = FALSE
                       )
 ```
-
 # Overview
 
-US Mortgage-Backed Securities (MBS0 is a \$7.3 trillion market of 1M pools of Prime Real State loans. This shiny app [MBS Viewer](https://tgonzale.shinyapps.io/FNMA_PoolView/) is a US MBS query tool. It is a
-
-The scope is:
+US Mortgage-Backed Securities (MBS) is a \$7.3 trillion market composed of 1M pools of Prime Real State loans guaranteed by:
 
 -   [Fannie Mae Single-Family MBS](https://capitalmarkets.fanniemae.com/mortgage-backed-securities/single-family/single-family-disclosure-information-center)
 

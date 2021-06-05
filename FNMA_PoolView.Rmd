@@ -1,46 +1,51 @@
 ---
 output:
+  html_document: 
+    toc: true
+    toc_depth: 4
+    toc_float: true
   md_document: default
-  html_document: default
 editor_options: 
   chunk_output_type: console
 ---
 
-## [FNMA_PoolView](https://tgonzale.shinyapps.io/FNMA_PoolView/)
+# FNMA_PoolView
 
-This is a shiny app that displays Fannie Mae, Freddie Mac and Ginnie Mae pool and loan characteristics on a pool by pool basis.
+[FNMA_PoolView](https://tgonzale.shinyapps.io/FNMA_PoolView/) is a shiny app that displays Fannie Mae, Freddie Mac and Ginnie Mae guaranteed pool and loan characteristics on a pool by pool basis.
 
-The upper panel selects the agency as above and the reporting month. For demonstration, a random sample pool is loaded each time. The lower panel has two main tabs:
+The upper region selects the agency as above and the reporting month (for demonstration, a random sample pool is loaded each time). Below are two tabs, one for viewing single pools and one for cohorts or aggregations.
 
-### Pool Viewer
+## Pool Viewer
 
 For individual pools, containing the subtabs:
 
-#### Security Identifier Input and Pool Summary
+### Security Identifier Input and Pool Summary
 
 For entering a single pool and displaying it's main characteristics, including it's geographical dispersion.
 
 ![](www/Pool_View_Input.jpg)
 
-#### Pool Detailed Information
+### Pool Detailed Information
 
 For displaying all information disclosed by the source plus some calculated fields like prepayment speeds.
 
 ![](www/Pool_View_Detail.jpg)
 
-#### Adjustable Rate Mortgage (ARM) Specific
+### Generic Product Characteristics
+
+### Adjustable Rate Mortgage (ARM) Specific
 
 ARM-specific information in case the pool is an ARM.
 
 ![](www/Pool_View_ARM.jpg)
 
-#### Stratifications
+### Stratifications
 
 Supplemental information about the pool
 
 ![](www/Pool_View_Stratifications.jpg)
 
-#### Loan Level Information
+### Loan Level Information
 
 Displays loan level information for the pool when available.
 
@@ -74,6 +79,7 @@ library(knitr)
 knitr::opts_chunk$set(cache = TRUE, echo=FALSE, tidy = FALSE, message=FALSE)
 
 library(data.table)
+library(formattable)
 library(magrittr)
 
 library(pander)
@@ -84,10 +90,39 @@ panderOptions('round',2)
 panderOptions('date',"%Y-%m-%d")
 panderOptions('table.split.table', 80)
 panderOptions('table.split.cells', 30)
+
+remove_na_cols <- function(dt)  dt[,which(unlist(lapply(dt, function(x)!all(is.na(x))))), with=FALSE]
+underscore_to_space <- function(names)  gsub(pattern = "_", replacement = " ", x= names)
+
+to_formattable <- function(dt, verbose=getOption("verbose",FALSE)) {
+  cols_count <- grep("Count$", names(dt), value = FALSE)
+  cols_dollar_M <- grep("((?<!as_%_of_Prior_Month_)UPB|RPB|Amt|(?<!Loan_)Amount)$", names(dt), value = FALSE, perl = TRUE, fixed = FALSE)
+   cols_dollar_k <- grep("(Loan_Amount|Loan_Size|AOLS)$", names(dt), value = FALSE, perl = TRUE, fixed = FALSE)
+  cols_pct <- grep("(%|SMM|CPR)", names(dt), value = FALSE)
+  if(verbose) {
+    print(dt[, .SD, .SDcols=cols_count])
+    print(dt[, .SD, .SDcols=cols_dollar_M])
+    print(dt[, .SD, .SDcols=cols_dollar_k])
+    print(dt[, .SD, .SDcols=cols_pct])
+  }
+  formattable::formattable(dt, list(
+    formattable::area(col=cols_count) ~ function(x) formattable::comma(x,0)
+    , formattable::area(col=cols_dollar_M) ~ function(x) formattable::currency(x/1e6, symbol = "$") %>% formattable::suffix("M")
+    , formattable::area(col=cols_dollar_k) ~ function(x) formattable::currency(x/1e3, symbol = "$") %>% formattable::suffix("k")
+    , formattable::area(col=cols_pct) ~ formattable::percent
+  ))
+}
+
 ```
 
 ```{r setup-loanroll, include=FALSE, eval=TRUE, cache=FALSE}
-
+readRenviron("~/Finance/FNMA/.Renviron")
+remotes::install_github("canarionyc/loanroll"
+                        , dependencies = FALSE
+                        , force = FALSE
+                        , quiet = TRUE
+                        )
+library(loanroll)
 ```
 
 ### Data in AWS S3
@@ -128,18 +163,18 @@ print(
 
 ## R packages developed
 
-Package [loanroll](https://github.com/canarionyc/loanroll) for Fannie Mae and Freddie Mac pools and package [gnmar](https://github.com/canarionyc/gnmar "R pacackge on Github") for Ginnie Mae pools. Examples of their use are:
+### Package `loanroll`
 
-### FNMA Aggregations
+Package [`loanroll`](https://github.com/canarionyc/loanroll) processes Fannie Mae and Freddie Mac MBS pools.
+
+Examples of its use are:
+
+#### FNMA Aggregations
 
 The `MonthlyFactorDataset` object is loaded from **AWS S3**
 
 ```{r FNM_MF, echo = TRUE, eval=TRUE, collapse=TRUE, message=FALSE}
-readRenviron("~/Finance/FNMA/.Renviron")
-remotes::install_github("canarionyc/loanroll",
-#                        dependencies = FALSE,
-                        force = FALSE)
-library(loanroll)
+
 # devtools::load_all("~/Finance/FNMA/loanroll", reset = TRUE, recompile = FALSE, export_all = FALSE)
 
 Factor_Date <- "2021-04-01"
@@ -158,73 +193,89 @@ Then monthly aggregations are made. For example, for **FNCL**:
 
 ```{r FNCL, echo = TRUE, eval=TRUE, cache=TRUE}
 FNCL <- subset(MF, subset = quote(Prefix=="CL" & Seller_Name != "SCR" & WA_Net_Interest_Rate %in% seq(1,15,0.5) & Security_Factor_Date == Factor_Date))
-FNCL.stats <- aggregate(FNCL, by.vars=c('Prefix'))
-saveRDS(FNCL.stats, "FNCL_stats.Rds")
+FNCL_stats <- aggregate(FNCL, by.vars=c('Prefix'))
+saveRDS(FNCL_stats, "FNCL_stats.Rds")
 
-FNCL_Coupon.stats <- aggregate(FNCL, by.vars=c('Prefix', 'WA_Net_Interest_Rate'))
-saveRDS(FNCL_Coupon.stats, "FNCL_Coupon_stats.Rds")
+FNCL_Coupon_stats <- aggregate(FNCL, by.vars=c('Prefix', 'WA_Net_Interest_Rate'))
+saveRDS(FNCL_Coupon_stats, "FNCL_Coupon_stats.Rds")
 ```
 
 #### FNMA by Prefix
 
-```{r FNCL.stats, results='asis'}
-FNCL.stats <- readRDS("FNCL_stats.Rds")
+```{r FNCL_stats, results='markup'}
+FNCL_stats <- readRDS("FNCL_stats.Rds") %>% remove_na_cols
 
-dt <- FNCL.stats
-dt <- dt[,which(unlist(lapply(dt, function(x)!all(is.na(x))))), with=FALSE]
 
-pandoc.table(dt
-             , caption="FN CL"
-#             , justify = "right"
-             , col.names = gsub("[_.]", " ", fixed=FALSE, names(dt))
-#             , split.tables = Inf
-             , split.cells = 10
-             #             , style = "grid"
-             #            , use.hyphening = TRUE,
-             , round = 2
-#             , big.mark = ","
-)
+# pandoc.table(dt
+# #             , caption="FN CL"
+# #             , justify = "right"
+#              , col.names = gsub("[_.]", " ", fixed=FALSE, names(dt))
+# #             , split.tables = Inf
+#              , split.cells = 10
+#              #             , style = "grid"
+#              #            , use.hyphening = TRUE,
+#              , round = 2
+# #             , big.mark = ","
+# )
+
+
+  
+ft <- to_formattable(FNCL_stats) 
+ft <- ft %>% setnames(underscore_to_space )
+ft
 ```
 
 #### FNMA by Prefix and Coupon
 
-```{r FNCL_Coupon.stats, results='asis'}
-FNCL_Coupon.stats <- readRDS("FNCL_Coupon_stats.Rds")
-setkeyv(FNCL_Coupon.stats, c('Security_Factor_Date', 'Prefix', 'WA_Net_Interest_Rate'))
-row.names(FNCL_Coupon.stats) <- apply(FNCL_Coupon.stats[, .SD, .SDcols=key(FNCL_Coupon.stats)], 1, paste, collapse=" ")
-
-dt <- FNCL_Coupon.stats[, -key(FNCL_Coupon.stats), with=FALSE]
-dt <- dt[,which(unlist(lapply(dt, function(x)!all(is.na(x))))), with=FALSE]
+```{r FNCL_Coupon_stats, results='asis'}
+FNCL_Coupon_stats <- readRDS("FNCL_Coupon_stats.Rds") %>% remove_na_cols
+setkeyv(FNCL_Coupon_stats, c('Security_Factor_Date', 'Prefix', 'WA_Net_Interest_Rate'))
 
 
+# dt <- FNCL_Coupon_stats
+# dt <- dt[,which(unlist(lapply(dt, function(x) !all(is.na(x))))), with=FALSE]
+# 
+# 
+# pandoc.table(dt
+# #             , caption="FN CL by Coupon"
+#        #             , big.mark = ","
+#               , justify = "right"
+#              , col.names = gsub("[_.]", " ", fixed=FALSE, names(dt))
+#               , split.tables = Inf
+#              # , split.cells = 10
+#              #             , style = "grid"
+#              #            , use.hyphening = TRUE,
+# #             , round = 2
+# 
+# )
 
-
-pander(dt
-             , caption="FN CL by Coupon"
-              , justify = "right"
-             , col.names = gsub("[_.]", " ", fixed=FALSE, names(dt))
-             # , split.tables = Inf
-             # , split.cells = 10
-             #             , style = "grid"
-             #            , use.hyphening = TRUE,
-#             , round = 2
-#             , big.mark = ","
-)
+ft <- to_formattable(FNCL_Coupon_stats) 
+ft <- ft %>% setnames(underscore_to_space )
+ft
 ```
 
-### GNMA Aggregations
+
+
+### Package `gnmar`
+
+Package [`gnmar`](https://github.com/canarionyc/gnmar "R pacackge on Github") processes Ginnie Mae pools.
+
+Examples of its use are:
+
+#### GNMA Aggregations
 
 A `GinnieMBS` object is loaded from **AWS S3**
 
 ```{r ginnieMBS, echo=TRUE, cache=TRUE}
 options(verbose = FALSE)
-library(aws.s3)
+
 readRenviron("~/Finance/GNMA/.Renviron")
 # devtools::load_all("~/Finance/GNMA/gnmar", reset = TRUE, recompile = FALSE, export_all = FALSE)
-# library(gnmar)
 remotes::install_github("canarionyc/gnmar",
 #                        dependencies = FALSE,
-                        force = FALSE)
+                        force = FALSE,
+quiet = TRUE
+)
 library(gnmar)
 
 As_of_Date <- as.Date("2021-03-01")
@@ -240,23 +291,32 @@ ginnieMBS <- do.call(GinnieMBS, args.lst)
 # show(ginnieMBS)
 ```
 
-#### GNMA by Prefix
+##### GNMA by Prefix
 
 ```{r GNSF, echo=TRUE}
-GNSF <- subset(ginnieMBS, subset=quote(Pool_Indicator=="X" & Pool_Type=="SF" &  Issuer_Number!=9999 & Security_Interest_Rate %in% seq(0.5, 11, by=0.5)))
+GNSF <- subset(ginnieMBS, subset=quote(Pool_Indicator=="X" & 
+                                         Pool_Type=="SF" &  
+                                         Issuer_Number!=9999 & 
+                                         Security_Interest_Rate %in% seq(0.5, 11, by=0.5)))
 # print(summary(GNSF))
 GNSF_stats <- aggregate(GNSF, xvar=NULL,  by.vars=c('Pool_Indicator', 'Pool_Type' )
                         , verbose=FALSE
                           )
+saveRDS(GNSF_stats, "GNSF_stats.Rds")
 ```
 
-```{r GNSF.show, results='asis'}
-pandoc.table(GNSF_stats
-#              , justify = "right"
-             , col.names = gsub("[_.]", " ", fixed=FALSE, names(GNSF_stats)))
+```{r GNSF.show, results='markup'}
+# pandoc.table(GNSF_stats
+# #              , justify = "right"
+#              , col.names = gsub("[_.]", " ", fixed=FALSE, names(GNSF_stats)))
+GNSF_stats <- readRDS("GNSF_stats.Rds")
+
+ft <- to_formattable(GNSF_stats)
+ft <- ft %>% setnames(underscore_to_space )
+ft
 ```
 
-### GNMA by Prefix and Coupon
+##### GNMA by Prefix and Coupon
 
 ```{r GNSF_stats.by_Coupon, echo=TRUE}
 # GNSF_Coupon <- subset(GNSF, subset=quote(Pool_Indicator=="X" & Pool_Type=="SF" &  Issuer_Number!=9999 & Security_Interest_Rate %in% seq(0.5, 11, by=0.5)))
@@ -265,10 +325,18 @@ GNSF_stats.by_Coupon <- aggregate(GNSF, xvar=NULL
                         , by.vars=c('Pool_Indicator', 'Pool_Type', 'Security_Interest_Rate' )
                         , verbose=FALSE
                           )
+if( "grouping" %in% names(GNSF_stats.by_Coupon)) {
+  GNSF_stats.by_Coupon <- GNSF_stats.by_Coupon[ ,-c("grouping")]
+}
+  
 ```
 
-```{r GNSF_stats.by_Coupon.show, results='asis'}
-pandoc.table(GNSF_stats.by_Coupon
-#              , justify = "right"
-             , col.names = gsub("[_.]", " ", fixed=FALSE, names(GNSF_stats.by_Coupon)))
+```{r GNSF_stats.by_Coupon.show, results='markup'}
+# pandoc.table(GNSF_stats.by_Coupon
+# #              , justify = "right"
+#              , col.names = gsub("[_.]", " ", fixed=FALSE, names(GNSF_stats.by_Coupon)))
+
+ft <- to_formattable(GNSF_stats.by_Coupon)
+ft <- ft %>% setnames(underscore_to_space )
+ft
 ```
