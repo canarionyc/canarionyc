@@ -1,27 +1,3 @@
----
-title: Applications and libraries stored in Github 
-author: "Tomas Gonzalez-Llarena"
-date: "5/4/2021"
-email: structuredguy@gmail.com
-output:
-  md_document: 
-    preserve_yaml: true
-    variant: gfm
-    toc: true
-    toc_depth: 4
-    df_print: !expr pander::pander
-  html_document:
-    toc: true
-    toc_depth: 4
-    toc_float: true
-  word_document: default
-always_allow_html: true
-editor_options:
-  chunk_output_type: inline
-  markdown: 
-    wrap: 80
-# runtime: shiny
----
 
 
 
